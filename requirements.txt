@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pymupdf
+python-docx
+pydantic
+python-multipart
+graphrag
+azure-storage-blob
+asyncpg
+httpx
+google-genai
+cerebras-cloud-sdk
+pandas
+pyvis
+psutil

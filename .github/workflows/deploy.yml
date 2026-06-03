@@ -1,0 +1,140 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+env:
+  ACR_NAME: docintregistry
+  ACR_LOGIN_SERVER: docintregistry.azurecr.io
+  IMAGE_NAME: docint-app
+  RESOURCE_GROUP: rg-docint
+  CONTAINER_APP_NAME: ca-docint
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ============================================
+      # 1. CHECKOUT CODE
+      # ============================================
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # ============================================
+      # 2. SET UP DOCKER BUILDX
+      # ============================================
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ============================================
+      # 3. LOGIN TO AZURE
+      # ============================================
+      - name: 🔐 Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ============================================
+      # 4. LOGIN TO AZURE CONTAINER REGISTRY
+      # ============================================
+      - name: 🔑 Login to ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      # ============================================
+      # 5. BUILD AND PUSH DOCKER IMAGE
+      # ============================================
+      - name: 🏗️ Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+          cache-to: type=inline
+          
+      # ============================================
+      # 6. DEPLOY TO AZURE CONTAINER APPS
+      # ============================================
+      - name: 🚀 Deploy to Azure Container Apps
+        run: |
+          echo "Deploying image: ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars \
+              DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              AZURE_STORAGE_CONNECTION_STRING="${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
+              CEREBRAS_API_KEY="${{ secrets.CEREBRAS_API_KEY }}" \
+              GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}"
+
+      # ============================================
+      # 7. VERIFY DEPLOYMENT
+      # ============================================
+      - name: ✅ Verify deployment
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+          
+          # Get the app URL
+          APP_URL=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          
+          echo "App URL: https://${APP_URL}"
+          
+          # Check health endpoint
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${APP_URL}/health" || echo "000")
+          
+          if [ "$HEALTH_STATUS" = "200" ]; then
+            echo "✅ Deployment successful! Health check passed."
+            echo "🌐 Application is live at: https://${APP_URL}"
+            echo "📊 Dashboard: https://${APP_URL}/dashboard"
+          else
+            echo "⚠️ Deployment completed but health check returned: $HEALTH_STATUS"
+            echo "The app may still be starting up. Check Azure Portal for details."
+          fi
+
+      # ============================================
+      # 8. DEPLOYMENT SUMMARY
+      # ============================================
+      - name: 📋 Deployment Summary
+        if: success()
+        run: |
+          echo "================================"
+          echo "🎉 DEPLOYMENT COMPLETE"
+          echo "================================"
+          echo "Image: ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "================================"
+
+      # ============================================
+      # 9. HANDLE FAILURES
+      # ============================================
+      - name: ❌ Deployment Failed
+        if: failure()
+        run: |
+          echo "================================"
+          echo "❌ DEPLOYMENT FAILED"
+          echo "================================"
+          echo "Please check the logs above for details."
+          echo "Common issues:"
+          echo "  - Missing GitHub Secrets"
+          echo "  - Invalid Azure credentials"
+          echo "  - Docker build errors"
+          echo "  - Azure quota limits"
+          echo "================================"
+          exit 1

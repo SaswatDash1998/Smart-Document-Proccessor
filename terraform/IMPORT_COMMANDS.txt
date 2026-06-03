@@ -1,0 +1,73 @@
+# Terraform Import Commands
+# Run these commands ONE BY ONE in the terraform/ directory
+
+# Step 1: Initialize Terraform
+cd terraform
+terraform init
+
+# Step 2: Import Resources (run one at a time, wait for each to complete)
+
+# 1. Resource Group
+terraform import azurerm_resource_group.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint
+
+# 2. Storage Account
+terraform import azurerm_storage_account.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.Storage/storageAccounts/stadocint
+
+# 3. Blob Containers
+terraform import azurerm_storage_container.raw_documents https://stadocint.blob.core.windows.net/raw-documents
+
+terraform import azurerm_storage_container.graphrag_input https://stadocint.blob.core.windows.net/graphrag-input
+
+terraform import azurerm_storage_container.graphrag_output https://stadocint.blob.core.windows.net/graphrag-output
+
+# 4. PostgreSQL Server
+terraform import azurerm_postgresql_flexible_server.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgdocint
+
+# 5. PostgreSQL Database
+terraform import azurerm_postgresql_flexible_server_database.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgdocint/databases/docint
+
+# 6. PostgreSQL Configuration (pgvector)
+terraform import azurerm_postgresql_flexible_server_configuration.vector_extension /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgdocint/configurations/azure.extensions
+
+
+
+===DOESNT WORK AFTER THIS====
+# 7. PostgreSQL Firewall Rules
+terraform import azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services "/subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgdocint/firewallRules/AllowAllAzureServicesAndResourcesWithinAzureIps_2026-5-15_21-55-53"
+
+We dont need it.
+terraform import azurerm_postgresql_flexible_server_firewall_rule.allow_all /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgdocint/firewallRules/AllowAll
+
+# 8. Key Vault
+terraform import azurerm_key_vault.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.KeyVault/vaults/kv-docint
+
+# 9. Key Vault Secrets
+terraform import azurerm_key_vault_secret.cerebras_api_key https://kv-docint.vault.azure.net/secrets/CEREBRAS-API-KEY
+
+terraform import azurerm_key_vault_secret.db_password https://kv-docint.vault.azure.net/secrets/DB-PASSWORD
+
+terraform import azurerm_key_vault_secret.storage_connection_string https://kv-docint.vault.azure.net/secrets/STORAGE-CONNECTION-STRING
+
+# 10. Container Registry
+terraform import azurerm_container_registry.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.ContainerRegistry/registries/acrdocint
+
+# 11. Container Apps Environment
+terraform import azurerm_container_app_environment.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.App/managedEnvironments/cae-docint
+
+# 12. Container App
+terraform import azurerm_container_app.main /subscriptions/33b1c6ed-f762-4f74-bc5b-d0c1a3701ff8/resourceGroups/rg-docint/providers/Microsoft.App/containerApps/ca-docint
+
+# Step 3: Verify (should show ZERO changes)
+terraform plan
+
+# If successful, you should see:
+# "No changes. Your infrastructure matches the configuration."
+
+# Step 4: Check Git Status
+cd ..
+git status
+
+# Make sure you do NOT see:
+# - terraform.tfvars
+# - .tfstate files
+# - .env file
