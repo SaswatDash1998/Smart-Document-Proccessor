@@ -9,7 +9,7 @@ completion_models:
     model_provider: cerebras
     model: llama-3.1-8b    # 128k context window
     auth_method: api_key
-    api_key: csk-pw2hvcj3yfy6myvjxj5fc9e4k3fdpwh4pn429thnmtcnewxe
+    api_key: <API_KEY>
     retry:
       type: exponential_backoff
 
@@ -21,7 +21,7 @@ embedding_models:
     model_provider: gemini
     model: gemini-embedding-001
     auth_method: api_key
-    api_key: AIzaSyDYXpDXXsNGdZ4kg59aSM6abi2o7i1Mr5I
+    api_key: <API_KEY>
 
 # ── Input ────────────────────────────────────────────────────────────────────
 
